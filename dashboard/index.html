@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>StreamPulse Monitor</title>
+  <style>
+    :root { color-scheme: dark; --ink:#edf4f2; --muted:#8ca19d; --panel:#172522; --line:#2b433d; --accent:#79e1b0; --warn:#f2bd72; }
+    * { box-sizing: border-box; }
+    body { margin:0; min-height:100vh; background: radial-gradient(circle at 85% 0%, #24443b 0, #101a19 42%, #0b1111 100%); color:var(--ink); font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+    main { max-width: 1120px; margin:auto; padding:48px 24px; }
+    header { display:flex; justify-content:space-between; gap:24px; align-items:end; border-bottom:1px solid var(--line); padding-bottom:24px; }
+    h1 { margin:0; font: 700 clamp(30px, 5vw, 58px)/.95 Georgia, serif; letter-spacing:0; }
+    .eyebrow { color:var(--accent); letter-spacing:2px; font-size:11px; text-transform:uppercase; margin-bottom:12px; }
+    .status { color:var(--muted); font-size:12px; }
+    .status b { color:var(--accent); }
+    .grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin:28px 0; }
+    .metric { background:rgba(23,37,34,.82); border:1px solid var(--line); padding:20px; min-height:130px; }
+    .label { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:1px; }
+    .value { font:700 36px/1.1 Georgia,serif; margin:15px 0 4px; }
+    .unit { color:var(--muted); font-size:12px; }
+    section { border-top:1px solid var(--line); padding-top:20px; }
+    .chart-wrap { height:260px; display:flex; align-items:end; gap:3px; padding:20px 0 10px; }
+    .bar { flex:1; min-width:3px; background:var(--accent); opacity:.8; transition:height .25s ease; }
+    .legend { color:var(--muted); font-size:12px; display:flex; justify-content:space-between; }
+    @media(max-width:700px) { main{padding:28px 16px} header{display:block}.status{margin-top:18px}.grid{grid-template-columns:repeat(2,1fr)} .value{font-size:28px} }
+  </style>
+</head>
+<body>
+<main>
+  <header><div><div class="eyebrow">Real-time stream observability</div><h1>StreamPulse</h1></div><div class="status">API <b id="connection">connecting</b><br>10-second rolling window</div></header>
+  <div class="grid">
+    <article class="metric"><div class="label">Frame latency</div><div class="value" id="latency">--</div><div class="unit">milliseconds, latest</div></article>
+    <article class="metric"><div class="label">Bitrate</div><div class="value" id="bitrate">--</div><div class="unit">megabits per second</div></article>
+    <article class="metric"><div class="label">Dropped frames</div><div class="value" id="dropped">--</div><div class="unit">sequence gaps + read errors</div></article>
+    <article class="metric"><div class="label">Bitrate variance</div><div class="value" id="variance">--</div><div class="unit">bits squared</div></article>
+  </div>
+  <section><div class="label">Encoded frame size, recent samples</div><div class="chart-wrap" id="chart"></div><div class="legend"><span>newest on right</span><span id="frames">-- frames observed</span></div></section>
+</main>
+<script>
+const history = [];
+const format = (value, digits = 1) => Number(value).toFixed(digits);
+async function refresh() {
+  try {
+    const response = await fetch('/api/metrics', { cache: 'no-store' });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const metrics = await response.json();
+    document.querySelector('#connection').textContent = 'live';
+    document.querySelector('#latency').textContent = format(metrics.latency_ms);
+    document.querySelector('#bitrate').textContent = format(metrics.bitrate_mbps, 2);
+    document.querySelector('#dropped').textContent = metrics.dropped_frames + metrics.read_errors;
+    document.querySelector('#variance').textContent = Math.round(metrics.bitrate_variance).toLocaleString();
+    document.querySelector('#frames').textContent = metrics.frames_seen + ' frames observed';
+    history.push(metrics.last_encoded_bytes); if (history.length > 48) history.shift();
+    const max = Math.max(...history, 1);
+    document.querySelector('#chart').innerHTML = history.map(size => `<i class="bar" style="height:${Math.max(3, size / max * 100)}%" title="${size} bytes"></i>`).join('');
+  } catch (error) { document.querySelector('#connection').textContent = 'offline'; }
+}
+refresh(); setInterval(refresh, 1000);
+</script>
+</body>
+</html>

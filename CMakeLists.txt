@@ -1,0 +1,30 @@
+cmake_minimum_required(VERSION 3.16)
+project(streampulse LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+find_package(OpenCV QUIET COMPONENTS core imgcodecs videoio)
+find_package(Threads REQUIRED)
+
+add_library(streampulse_metrics src/metrics.cpp)
+target_include_directories(streampulse_metrics PUBLIC include)
+target_compile_options(streampulse_metrics PRIVATE -Wall -Wextra -Wpedantic)
+
+if(OpenCV_FOUND)
+    add_executable(streampulse src/main.cpp)
+    target_link_libraries(streampulse PRIVATE streampulse_metrics ${OpenCV_LIBS} Threads::Threads)
+    target_include_directories(streampulse PRIVATE include ${OpenCV_INCLUDE_DIRS})
+    target_compile_definitions(streampulse PRIVATE STREAMPULSE_WEB_ROOT=\"${CMAKE_CURRENT_SOURCE_DIR}/dashboard\")
+    target_compile_options(streampulse PRIVATE -Wall -Wextra -Wpedantic)
+else()
+    message(WARNING "OpenCV was not found; only the metrics test target will be available.")
+endif()
+
+enable_testing()
+add_executable(metrics_tests tests/metrics_tests.cpp)
+target_link_libraries(metrics_tests PRIVATE streampulse_metrics)
+target_include_directories(metrics_tests PRIVATE include)
+target_compile_options(metrics_tests PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME metrics_tests COMMAND metrics_tests)
