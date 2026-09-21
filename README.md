@@ -33,6 +33,14 @@ Open <http://localhost:8080>. A file path or OpenCV-supported stream URL can be 
 ./build/streampulse rtsp://user:password@localhost:8554/test 8080
 ```
 
+If OpenCV is unavailable, CMake automatically builds a dependency-free synthetic monitor using the same metrics engine and dashboard:
+
+```sh
+./build/streampulse 8080
+```
+
+This generates a simulated 35 FPS stream with variable encoded frame sizes and periodic sequence gaps. It is useful for validating the dashboard and metrics locally; real camera and RTSP capture requires OpenCV.
+
 ## Metrics
 
 - **Latency:** elapsed time from immediately before `VideoCapture::read` to after JPEG encoding. Without source presentation timestamps, this is a capture and processing latency proxy rather than network glass-to-glass latency.
